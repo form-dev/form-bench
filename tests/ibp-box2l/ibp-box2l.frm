@@ -1,5 +1,6 @@
 #-
 
+#: MaxNumberSize 100K
 #: MaxTermSize 1M
 #: WorkSpace 100M
 
