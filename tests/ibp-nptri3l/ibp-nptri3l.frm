@@ -1,12 +1,12 @@
 #-
 
+#: MaxNumberSize 50K
 #: MaxTermSize 300K
 #: SmallSize 2G
 
 On fewerstats,0;
 Off threadstats;
 On humanstats;
-On sortverbose;
 
 Symbol x,ep,q12;
 Symbol n1,...,n12,m1,...,m12;

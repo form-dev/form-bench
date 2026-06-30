@@ -1,5 +1,6 @@
 #-
 
+#: MaxNumberSize 40K
 #: MaxTermSize 100K
 #: ScratchSize 1G
 

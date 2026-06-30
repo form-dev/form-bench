@@ -1,5 +1,6 @@
 #-
 
+#: MaxNumberSize 100K
 #: MaxTermSize 6M
 #: WorkSpace 200M
 
@@ -16,7 +17,7 @@ PolyRatFun prf;
 #include inc/reduce-mbox1l.h
 
 #ifndef `DIFFICULTY'
-	#define DIFFICULTY "3"
+	#define DIFFICULTY "1"
 #endif
 
 #if `DIFFICULTY' == 1
