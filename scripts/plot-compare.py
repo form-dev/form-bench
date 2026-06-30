@@ -104,15 +104,15 @@ for file in res_files:
    # Extract worker counts from commands
    cpus = []
    for l in commands:
-      if l.startswith("form"):
-         cpus.append(1)
-      elif l.startswith("tform"):
+      if l.find("tform") >= 0:
          cpu = re.findall(r"-w(\d+)", l)
          cpus.append(int(cpu[0]))
+      elif l.find("form") >= 0:
+         cpus.append(1)
       else:
          print("Could not determine workers in ", l)
          cpus.append(0)
-   speedup_ideal = [int(cpu/min(cpus)) for cpu in cpus]
+   speedup_ideal = [int(cpu/max(1,min(cpus))) for cpu in cpus]
 
    plt.figure(figsize = (16,9), constrained_layout = True)
    plt.title(name)
@@ -162,7 +162,7 @@ with open(res_dir+"/table-combined.md", "w") as of:
       )
    )
 
-speedup_ideal = [int(cpu/min(all_cpus[0])) for cpu in all_cpus[0]]
+speedup_ideal = [int(cpu/max(1,min(all_cpus[0]))) for cpu in all_cpus[0]]
 plt.figure(figsize = (16,9), constrained_layout = True)
 plt.xticks(all_cpus[0])
 plt.yticks(speedup_ideal)
