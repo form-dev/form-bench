@@ -17,6 +17,8 @@ plt.rcParams["boxplot.boxprops.linewidth"] = 3
 plt.rcParams["boxplot.flierprops.linewidth"] = 3
 plt.rcParams["boxplot.medianprops.linewidth"] = 3
 plt.rcParams["axes.grid"] = True
+plt.rcParams["figure.figsize"] = (16,9)
+plt.rcParams["figure.constrained_layout.use"] = True
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("res_dir")
@@ -31,10 +33,10 @@ all_commands = []
 speedup_columns = None
 
 
-def format_markdown_table(benchmarks, means, errs, columns, baseline_command):
-   speedup_columns = columns[1:]
+def format_markdown_table(benchmarks, means, errs, columns, baseline_index):
+   speedup_columns = [c for i, c in enumerate(columns) if i != baseline_index]
    lines = [
-      "Parallel speedup w.r.t " + baseline_command,
+      "Parallel speedup w.r.t " + columns[baseline_index],
       "",
       "| Benchmark | " + " | ".join(speedup_columns) + " |",
       "|:---|" + "|".join(["---:" for _ in speedup_columns]) + "|",
@@ -43,7 +45,7 @@ def format_markdown_table(benchmarks, means, errs, columns, baseline_command):
    for benchmark, row_means, row_errs in zip(benchmarks, means, errs):
       values = [
          f"{mean:.2f} ± {err:.2f}"
-         for mean, err in zip(row_means[1:], row_errs[1:])
+         for i, (mean, err) in enumerate(zip(row_means, row_errs)) if i != baseline_index
       ]
       lines.append("| " + benchmark + " | " + " | ".join(values) + " |")
 
@@ -65,30 +67,42 @@ for file in res_files:
    commands = [r["command"] for r in res]
    times    = [r["times"] for r in res]
 
-   plt.figure(figsize = (16,9), constrained_layout = True)
    plt.title(name)
    plt.boxplot(times)
    plt.xticks(list(range(1,len(commands)+1)), commands, rotation=90)
    plt.ylabel("Runtime (s)")
 
-   # For normalized plots, divide the first mean out of the timings:
-   first_mean =  sum(times[0])/len(times[0])
-   scaled_times = [[t/first_mean for t in runtimes] for runtimes in times]
-   plt.figure(figsize = (16,9), constrained_layout = True)
+   # Extract worker counts from commands
+   cpus = []
+   for l in commands:
+      if l.find("tform") >= 0:
+         cpu = re.findall(r"-w(\d+)", l)
+         cpus.append(max(1,int(cpu[0])))
+      elif l.find("form") >= 0:
+         cpus.append(1)
+      else:
+         print("Could not determine workers in ", l)
+         cpus.append(0)
+   speedup_ideal = [int(cpu/min(cpus)) for cpu in cpus]
+
+   # Normalized times and speed-up w.r.t the smallest cpu count:
+   baseline_index = cpus.index(min(cpus))
+   baseline_mean = sum(times[baseline_index])/len(times[baseline_index])
+   scaled_times = [[t/baseline_mean for t in runtimes] for runtimes in times]
    plt.title(name)
    plt.boxplot(scaled_times)
    plt.xticks(list(range(1,len(commands)+1)), commands, rotation=90)
    plt.ylabel("Normalized Runtime")
 
-   # For speedup plots, divide the first mean by each command mean.
+   # For speedup plots, divide the means by the baseline mean.
    # Estimate errors by propagating the sample standard deviations of both means.
    speedup_means = []
    speedup_err = []
-   first_stddev = statistics.stdev(times[0]) if len(times[0]) > 1 else 0.0
+   baseline_stddev = statistics.stdev(times[baseline_index]) if len(times[baseline_index]) > 1 else 0.0
    for i, runtimes in enumerate(times):
       run_mean = statistics.mean(runtimes)
       run_stddev = statistics.stdev(runtimes) if len(runtimes) > 1 else 0.0
-      speedup = first_mean / run_mean
+      speedup = baseline_mean / run_mean
       speedup_means.append(speedup)
       if i == 0:
          speedup_err.append(0.0)
@@ -96,25 +110,12 @@ for file in res_files:
          speedup_err.append(
             speedup
             * (
-               (first_stddev / first_mean) ** 2
+               (baseline_stddev / baseline_mean) ** 2
                + (run_stddev / run_mean) ** 2
             )
             ** 0.5
          )
-   # Extract worker counts from commands
-   cpus = []
-   for l in commands:
-      if l.find("tform") >= 0:
-         cpu = re.findall(r"-w(\d+)", l)
-         cpus.append(int(cpu[0]))
-      elif l.find("form") >= 0:
-         cpus.append(1)
-      else:
-         print("Could not determine workers in ", l)
-         cpus.append(0)
-   speedup_ideal = [int(cpu/max(1,min(cpus))) for cpu in cpus]
 
-   plt.figure(figsize = (16,9), constrained_layout = True)
    plt.title(name)
    plt.plot(cpus, speedup_ideal, linestyle=":", color="maroon")
    plt.errorbar(cpus[0:1], speedup_means[0:1], yerr=speedup_err[0:1], fmt="o", capsize=5, capthick=2, color="red")
@@ -158,14 +159,15 @@ with open(res_dir+"/table-combined.md", "w") as of:
          all_speedup_means,
          all_speedup_err,
          commands,
-         all_commands[0],
+         baseline_index,
       )
    )
 
-speedup_ideal = [int(cpu/max(1,min(all_cpus[0]))) for cpu in all_cpus[0]]
-plt.figure(figsize = (16,9), constrained_layout = True)
+speedup_ideal = [int(cpu/min(all_cpus[0])) for cpu in all_cpus[0]]
 plt.xticks(all_cpus[0])
 plt.yticks(speedup_ideal)
+plt.xlim(0, 1+max(all_cpus[0]))
+plt.ylim(0, 1+max(all_cpus[0]))
 plt.ylabel("Parallel speedup w.r.t "+str(all_commands[0]))
 plt.xlabel("Workers")
 cm = plt.get_cmap('tab20b')
