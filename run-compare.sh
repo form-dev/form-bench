@@ -86,8 +86,13 @@ for test in $TESTS; do
 
 	source "tests/$test/conf.sh"
 	tests_list+=("$test")
-	runs_list+=("$((N * runs))")
-	warmup_list+=("$warmup")
+	if [ $N -eq 0 ]; then
+		runs_list+=("1")
+		warmup_list+=("0")
+	else
+		runs_list+=("$((N * runs))")
+		warmup_list+=("$warmup")
+	fi
 done
 
 # Check for python3 and hyperfine:
